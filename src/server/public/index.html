@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ticket Helper</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --row-alt: #f9fafb;
+    --accent: #2563eb;
+    --warn-bg: #fef2f2;
+    --warn-fg: #b91c1c;
+    --pill-bg: #eef2ff;
+    --pill-fg: #3730a3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111318;
+      --fg: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #2a2e37;
+      --row-alt: #171a21;
+      --accent: #60a5fa;
+      --warn-bg: #3f1d1d;
+      --warn-fg: #fca5a5;
+      --pill-bg: #1e2340;
+      --pill-fg: #a5b4fc;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px;
+    background: var(--bg);
+    color: var(--fg);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+  .panel {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .panel h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin: 0;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  #watchlist { padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    background: var(--pill-bg);
+    color: var(--pill-fg);
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+  }
+  .chip.unresolved { opacity: 0.6; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { cursor: pointer; user-select: none; white-space: nowrap; color: var(--muted); font-weight: 600; }
+  th:hover { color: var(--fg); }
+  th.sorted::after { content: " " attr(data-dir); }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  .score { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .score.unknown { color: var(--muted); font-weight: 400; }
+  .muted { color: var(--muted); }
+  .show { font-weight: 600; }
+  .venue { color: var(--muted); font-size: 12px; }
+  .restricted {
+    background: var(--warn-bg);
+    color: var(--warn-fg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    display: inline-block;
+    margin-top: 4px;
+  }
+  .links a { margin-right: 8px; font-size: 12px; }
+  .code-form { display: flex; gap: 4px; margin-top: 4px; }
+  .code-form input {
+    font-size: 12px;
+    padding: 3px 5px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--fg);
+    width: 90px;
+  }
+  .code-form button {
+    font-size: 12px;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--pill-bg);
+    color: var(--pill-fg);
+    cursor: pointer;
+  }
+  .saved-code { font-weight: 600; font-size: 12px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  #refresh {
+    font-size: 12px;
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--pill-bg);
+    color: var(--pill-fg);
+    cursor: pointer;
+  }
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  #empty { padding: 30px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>Ticket Helper</h1>
+<p class="sub">Decision-support only — no automated purchasing. Ranked by composite resale-quality score.</p>
+
+<div class="panel">
+  <h2>Watchlist</h2>
+  <div id="watchlist"></div>
+</div>
+
+<div class="toolbar">
+  <span class="sub" id="count"></span>
+  <button id="refresh">Refresh</button>
+</div>
+
+<div class="panel">
+  <table id="events-table">
+    <thead>
+      <tr>
+        <th data-key="score" data-type="number">Score</th>
+        <th data-key="eventDate" data-type="string">Date</th>
+        <th data-key="artistName" data-type="string">Show</th>
+        <th data-key="urgencyStatus" data-type="string">Urgency</th>
+        <th data-key="priceTierSignal" data-type="number">Price tier</th>
+        <th data-key="capacityVsPopularity" data-type="number">Capacity vs pop</th>
+        <th>Links / code</th>
+      </tr>
+    </thead>
+    <tbody id="events-body"></tbody>
+  </table>
+  <div id="empty" hidden>No events yet — run <code>npm run watchlist -- refresh</code>, then reload.</div>
+</div>
+
+<script>
+let events = [];
+let sortKey = "score";
+let sortDir = "desc";
+
+function fmtDate(iso) {
+  return iso ? iso.slice(0, 10) : "?";
+}
+
+function fmtUrgency(e) {
+  switch (e.urgencyStatus) {
+    case "on-sale-now": return "on sale NOW";
+    case "on-sale-open": return "on sale (open a while)";
+    case "upcoming": return `opens in ${e.urgencyDaysUntil}d`;
+    case "sale-ended": return "sale ended";
+    default: return "unknown";
+  }
+}
+
+function fmtBasis(basis) {
+  if (!basis || basis.length === 0) return "no signal";
+  return basis.join(" + ");
+}
+
+async function loadWatchlist() {
+  const res = await fetch("/api/watchlist");
+  const entries = await res.json();
+  const el = document.getElementById("watchlist");
+  el.innerHTML = "";
+  if (entries.length === 0) {
+    el.innerHTML = '<span class="muted">Empty — add artists with <code>npm run watchlist -- add "Artist Name"</code></span>';
+    return;
+  }
+  for (const w of entries) {
+    const chip = document.createElement("span");
+    chip.className = "chip" + (w.ticketmasterAttractionId ? "" : " unresolved");
+    chip.textContent = w.artistName + (w.upcomingEventsTotal != null ? ` (${w.upcomingEventsTotal} shows)` : "");
+    el.appendChild(chip);
+  }
+}
+
+async function loadEvents() {
+  const res = await fetch("/api/events");
+  events = await res.json();
+  document.getElementById("count").textContent = `${events.length} event(s)`;
+  document.getElementById("empty").hidden = events.length !== 0;
+  render();
+}
+
+function sortedEvents() {
+  const copy = [...events];
+  copy.sort((a, b) => {
+    let av = a[sortKey];
+    let bv = b[sortKey];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    if (typeof av === "string") return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+    return sortDir === "asc" ? av - bv : bv - av;
+  });
+  return copy;
+}
+
+async function saveCode(eventId, code, source) {
+  const res = await fetch(`/api/presale/${eventId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, source }),
+  });
+  if (res.ok) await loadEvents();
+  else alert((await res.json()).error || "Failed to save code");
+}
+
+function render() {
+  const tbody = document.getElementById("events-body");
+  tbody.innerHTML = "";
+
+  for (const e of sortedEvents()) {
+    const tr = document.createElement("tr");
+
+    const scoreTd = document.createElement("td");
+    scoreTd.innerHTML = e.score === null
+      ? '<span class="score unknown">??</span>'
+      : `<span class="score">${e.score}</span><div class="muted" style="font-size:11px">${fmtBasis(e.basis)}</div>`;
+    tr.appendChild(scoreTd);
+
+    const dateTd = document.createElement("td");
+    dateTd.textContent = fmtDate(e.eventDate);
+    tr.appendChild(dateTd);
+
+    const showTd = document.createElement("td");
+    showTd.innerHTML = `<div class="show">${e.artistName}</div><div class="venue">${e.venueName}, ${e.venueCity}</div>` +
+      (e.restricted ? `<div class="restricted">RESTRICTED: "${e.restrictedMatch}" — verify manually</div>` : "");
+    tr.appendChild(showTd);
+
+    const urgencyTd = document.createElement("td");
+    urgencyTd.textContent = fmtUrgency(e);
+    tr.appendChild(urgencyTd);
+
+    const priceTd = document.createElement("td");
+    priceTd.textContent = e.priceTierSignal === null ? "unknown" : e.priceTierSignal;
+    tr.appendChild(priceTd);
+
+    const capTd = document.createElement("td");
+    capTd.textContent = e.capacityVsPopularity === null ? "unknown" : e.capacityVsPopularity;
+    tr.appendChild(capTd);
+
+    const linksTd = document.createElement("td");
+    const linksDiv = document.createElement("div");
+    linksDiv.className = "links";
+    linksDiv.innerHTML =
+      `<a href="${e.ticketmasterUrl}" target="_blank" rel="noopener">Ticketmaster</a>` +
+      `<a href="${e.searchLinks.officialSiteSearch}" target="_blank" rel="noopener">Site</a>` +
+      `<a href="${e.searchLinks.twitterSearch}" target="_blank" rel="noopener">X</a>` +
+      `<a href="${e.searchLinks.redditSearch}" target="_blank" rel="noopener">Reddit</a>`;
+    linksTd.appendChild(linksDiv);
+
+    if (e.presaleCode) {
+      const saved = document.createElement("div");
+      saved.className = "saved-code";
+      saved.textContent = `Code: ${e.presaleCode}` + (e.presaleSource ? ` (${e.presaleSource})` : "");
+      linksTd.appendChild(saved);
+    }
+
+    const form = document.createElement("div");
+    form.className = "code-form";
+    const codeInput = document.createElement("input");
+    codeInput.placeholder = "code";
+    codeInput.value = e.presaleCode || "";
+    const sourceInput = document.createElement("input");
+    sourceInput.placeholder = "source";
+    sourceInput.value = e.presaleSource || "";
+    const saveBtn = document.createElement("button");
+    saveBtn.textContent = "Save";
+    saveBtn.onclick = () => saveCode(e.id, codeInput.value, sourceInput.value);
+    form.append(codeInput, sourceInput, saveBtn);
+    linksTd.appendChild(form);
+
+    tr.appendChild(linksTd);
+    tbody.appendChild(tr);
+  }
+}
+
+document.querySelectorAll("th[data-key]").forEach((th) => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key;
+    if (sortKey === key) {
+      sortDir = sortDir === "asc" ? "desc" : "asc";
+    } else {
+      sortKey = key;
+      sortDir = th.dataset.type === "string" ? "asc" : "desc";
+    }
+    document.querySelectorAll("th[data-key]").forEach((h) => { h.classList.remove("sorted"); h.removeAttribute("data-dir"); });
+    th.classList.add("sorted");
+    th.setAttribute("data-dir", sortDir === "asc" ? "▲" : "▼");
+    render();
+  });
+});
+
+document.getElementById("refresh").addEventListener("click", () => {
+  loadWatchlist();
+  loadEvents();
+});
+
+loadWatchlist();
+loadEvents();
+</script>
+</body>
+</html>
