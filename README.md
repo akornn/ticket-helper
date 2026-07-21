@@ -32,8 +32,8 @@ Fill in `.env`:
 
 ```bash
 npm run watchlist -- add "Artist Name" ["optional notes"]   # seed artists you care about
-npm run watchlist -- refresh                                # fetch/update their events
-npm run venues -- missing                                   # see which venues need a capacity entered
+npm run watchlist -- refresh                                # fetch/update events + auto-fill new venue capacities
+npm run venues -- missing                                   # anything Wikidata couldn't find, for manual entry
 npm run venues -- set "Venue Name" "City" <capacity>
 npm run score                                                # ranked list, with each event's id
 npm run presale -- links <eventId>                           # search links for that show
@@ -63,9 +63,23 @@ npm run venues -- list
 npm run venues -- missing
 ```
 
-Ticketmaster doesn't expose venue capacity, so it's a manual table, keyed by
-venue name + city. `missing` lists venues seen in fetched events that don't
-have a capacity yet, sorted by how often they show up.
+Ticketmaster doesn't expose venue capacity, so it's a table keyed by venue
+name + city, filled in two ways:
+
+- **Auto-fill (default)** — every `npm run watchlist -- refresh` (and
+  `npm run refresh`) automatically looks up any newly-seen venue on
+  Wikidata (property P1083, "capacity"), disambiguating generic names
+  (e.g. "Armory") by preferring a search result whose description mentions
+  the venue's city. Found or not, the attempt is recorded so an unlisted
+  venue isn't re-queried every refresh — worst case it silently stays
+  unknown, it never guesses a number.
+- **Manual override** — `npm run venues -- set "Venue Name" "City" <capacity>
+  ["notes"]` always takes precedence and is never touched by auto-fill.
+
+`npm run venues -- missing` lists venues still without a capacity, flagging
+whether Wikidata already checked (and came up empty — needs manual entry)
+or hasn't been attempted yet. `npm run venues -- list` shows each venue's
+source (`[manual]` or `[wikidata]`).
 
 ## Scoring
 

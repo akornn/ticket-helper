@@ -24,6 +24,8 @@ export function getDb(): DatabaseSync {
   ensureColumn(db, "events", "presale_phase_count", "INTEGER");
   ensureColumn(db, "events", "restriction_notes", "TEXT");
   ensureColumn(db, "watchlist", "upcoming_events_total", "INTEGER");
+  ensureColumn(db, "venues", "capacity_source", "TEXT");
+  ensureColumn(db, "venues", "wikidata_checked_at", "TEXT");
 
   return db;
 }

@@ -36,8 +36,9 @@ function main() {
         break;
       }
       for (const v of venues) {
+        const source = v.capacitySource ? ` [${v.capacitySource}]` : "";
         console.log(
-          `- ${v.venueName}, ${v.venueCity}: ${v.capacity ?? "?"}` + (v.notes ? `  — ${v.notes}` : ""),
+          `- ${v.venueName}, ${v.venueCity}: ${v.capacity ?? "?"}${source}` + (v.notes ? `  — ${v.notes}` : ""),
         );
       }
       break;
@@ -51,7 +52,8 @@ function main() {
       }
       console.log(`${missing.length} venue(s) missing capacity (most-seen first):\n`);
       for (const m of missing) {
-        console.log(`- ${m.venueName}, ${m.venueCity}  (${m.eventCount} event(s) fetched)`);
+        const status = m.wikidataChecked ? " — Wikidata checked, not found; needs manual entry" : " — not yet checked";
+        console.log(`- ${m.venueName}, ${m.venueCity}  (${m.eventCount} event(s) fetched)${status}`);
       }
       break;
     }

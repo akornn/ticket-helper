@@ -45,6 +45,11 @@ CREATE TABLE IF NOT EXISTS venues (
   venue_name TEXT NOT NULL,
   venue_city TEXT NOT NULL,
   capacity INTEGER,
+  -- 'manual' (npm run venues -- set) or 'wikidata' (auto-fill). Null if capacity is still unknown.
+  capacity_source TEXT,
+  -- Set the first time auto-fill attempts this venue, whether or not it found
+  -- a capacity — so a venue Wikidata doesn't have isn't re-queried every refresh.
+  wikidata_checked_at TEXT,
   notes TEXT,
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (venue_name, venue_city)

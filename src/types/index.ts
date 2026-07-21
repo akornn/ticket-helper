@@ -34,6 +34,8 @@ export interface VenueRecord {
   venueName: string;
   venueCity: string;
   capacity: number | null;
+  capacitySource: "manual" | "wikidata" | null;
+  wikidataCheckedAt: string | null;
   notes: string | null;
   updatedAt: string;
 }

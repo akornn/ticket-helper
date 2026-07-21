@@ -1,10 +1,11 @@
 import { refreshWatchlistEvents } from "../services/watchlist.js";
+import { autoFillVenueCapacities } from "../services/venues.js";
 
 /**
- * Unattended cron entrypoint: refreshes every watchlist artist's events.
- * Scores are computed on demand (by npm run score / the dashboard), not
- * cached, so there's nothing else to refresh — this is the only step that
- * needs to run on a schedule.
+ * Unattended cron entrypoint: refreshes every watchlist artist's events,
+ * then auto-fills capacity for any newly-seen venue via Wikidata. Scores
+ * are computed on demand (by npm run score / the dashboard), not cached,
+ * so there's nothing else to refresh.
  *
  * Exits 1 if any artist errored (so cron/log monitoring can flag it), but
  * still processes every other artist first — see refreshWatchlistEvents.
@@ -29,6 +30,16 @@ async function main() {
     console.log(`- ${r.artistName}: ${r.status} (${r.eventCount} event(s))${suffix}`);
     fetchedEvents += r.eventCount;
     if (r.status === "error") errorCount++;
+  }
+
+  const autoFilled = await autoFillVenueCapacities();
+  if (autoFilled.length > 0) {
+    console.log("\nVenue capacity auto-fill (Wikidata):");
+    for (const v of autoFilled) {
+      console.log(
+        `- ${v.venueName}, ${v.venueCity}: ` + (v.capacity !== null ? `${v.capacity} (${v.matchedLabel})` : "not found"),
+      );
+    }
   }
 
   const finishedAt = new Date().toISOString();

@@ -4,6 +4,7 @@ import {
   getWatchlist,
   refreshWatchlistEvents,
 } from "../services/watchlist.js";
+import { autoFillVenueCapacities } from "../services/venues.js";
 
 function usage(): never {
   console.error(
@@ -71,6 +72,17 @@ async function main() {
       for (const r of results) {
         const suffix = r.status === "error" ? `: ${r.error}` : "";
         console.log(`- ${r.artistName}: ${r.status} (${r.eventCount} event(s))${suffix}`);
+      }
+
+      const autoFilled = await autoFillVenueCapacities();
+      if (autoFilled.length > 0) {
+        console.log("\nVenue capacity auto-fill (Wikidata):");
+        for (const v of autoFilled) {
+          console.log(
+            `- ${v.venueName}, ${v.venueCity}: ` +
+              (v.capacity !== null ? `${v.capacity} (${v.matchedLabel})` : "not found"),
+          );
+        }
       }
       break;
     }
