@@ -63,9 +63,22 @@ export function scoreEvent(event: EventRecord): ScoredEvent {
   };
 }
 
-/** All fetched events, scored and sorted by composite score descending (unscored/null last). */
+function isUpcoming(event: EventRecord, now: Date): boolean {
+  const eventDate = new Date(event.eventDate);
+  // Fail open on an unparseable date — hiding it silently would be worse than showing a bad one.
+  return Number.isNaN(eventDate.getTime()) || eventDate >= now;
+}
+
+/**
+ * All fetched *upcoming* events, scored and sorted by composite score
+ * descending (unscored/null last). Events whose date has already passed
+ * are excluded — a show that already happened isn't an actionable resale
+ * decision anymore, however it scored.
+ */
 export function scoreAllEvents(): ScoredEvent[] {
+  const now = new Date();
   return listEvents()
+    .filter((event) => isUpcoming(event, now))
     .map(scoreEvent)
     .sort((a, b) => (b.composite.score ?? -1) - (a.composite.score ?? -1));
 }
